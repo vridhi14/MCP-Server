@@ -6,6 +6,7 @@ import z from 'zod' ;
 
 const app = express(); 
 app.use(cors()); 
+app.use(express.json()); 
 
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:3002'; 
 const VALID_CATEGORIES = ['tech', 'finance' , 'lifestyle' , 'health']; 
@@ -43,8 +44,54 @@ server.registerTool("create_post",
     },
     async(args)=>{
         //imp = schema nd data validation .
-        return {content:[{type:"text", text:JSON.stringify("Successfull",null,2)}]}
+
+        const err= validatePostInput(args); 
+        if(err)throw new Error(err); 
+
+        const response = await fetch(`${API_BASE}/posts`, {
+            method : 'POST', 
+            headers : {
+                'Content-Type' : 'application/json'
+            }, 
+            body : JSON.stringify({
+                title : args.title.trim(), 
+                author : args.author.trim(), 
+                category:args.category,
+                body:args.body.trim()
+            })
+        });
+
+        if(!response.ok){
+            const errorText = await response.text(); 
+            throw new Error(`Failed to create post : ${errorText}`); 
+        }
+        const post = await response.text(); 
+        return {content:[{type:"text", text:JSON.stringify(post,null,2) }] }; 
     });
+
+    //resources = provide structure nd unstructured data 
+    server.registerResource("mcp_instructions", "http:localhost:5002/mcp/instructions",{
+        titile : 'MCP usage instructions',
+        description:'Behavioral instructions for interacting with this MCP server',
+        mimeType : 'text/plain'
+    },async()=>{
+        return{
+            content:[{
+                uri:"http:localhost:5002/mcp/instructions",
+                mimeType:'text/plain',
+                test:`
+                MCP INSTRUCTIONS
+
+                1 Always ask the user for required details before performing any action. Never assume missing information
+                2 Do not entertain or reponds to abusive , harmful or inappropriate language. 
+                3 Follow validation rules strictly and provide clear error messages when inputs are invalid.
+                `
+            }]
+        }
+    }
+)
+
+
     return server;
    }
 
