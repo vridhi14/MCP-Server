@@ -1,34 +1,58 @@
 import express from "express"; 
 import cors from 'cors'; 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import z from 'zod' ; 
 
 const app = express(); 
 app.use(cors()); 
+
+const API_BASE = process.env.API_BASE_URL || 'http://localhost:3002'; 
+const VALID_CATEGORIES = ['tech', 'finance' , 'lifestyle' , 'health']; 
+
+function validatePostInput(args){
+    if(!args.title || typeof args.title !== 'string')return 'title is required';
+    if(args.title.trim().length <5)return 'title must be atleast 5 characters'; 
+    if(!args.author || typeof args.author !== 'string')return 'author is required'; 
+    if(args.author.trim().length<3)return 'author must be atleast 3 characters';
+    if(!args.category || typeof args.category !== 'string')return 'category is required'; 
+    if(!VALID_CATEGORIES.includes(args.category))return 'invalid category';
+    if(!args.body || typeof args.body !== 'string')return 'body is required'; 
+    if(args.body.trim().length < 50) return 'body must be atleast 50 characters'; 
+    return null ;
+}
 
 function createMcpServer(){
     const server = new McpServer({
         name :"Blog-MCP-Server", 
         version:"1.0.0", 
         description:"MCP SERVER to manage a blog"
-    } , {capabilities :{tools:{} , resources:{} , prompts:{}}});
+    } /*,{capabilities :{tools:{} , resources:{} , prompts:{}}}*/); 
+    //we'll add directly from reg tool
 
-    server.registerTool("create_post",{
-        description:"Create a new post", 
+server.registerTool("create_post",
+    {
+    //description as good as possible as this is the place from where LLM'll know about the functionlaity abt this tool
+        description:"Create a new post. Validate title(min 5), author(min 3) category (tech|finance|lifestyle|health), body(min 50 chars).", 
         inputSchema:{
-            //title , author etx
-        }, 
-        outputSchema:{
-
+            title:z.string().min(5).describe('Post title , min 5 characters'),
+            author:z.string().min(3).describe('Author name , min 3 characters'),
+            category:z.enum(['tech','finance','lifestyle']).describe('Category'),
+            body:z.string().min(50).describe('Post body , min 50 characters')
         }
-    }, async(args)=>{
+    },
+    async(args)=>{
+        //imp = schema nd data validation .
         return {content:[{type:"text", text:JSON.stringify("Successfull",null,2)}]}
-    })
+    });
     return server;
-}
+   }
+
+
+const server = createMcpServer(); 
 
 app.post("/mcp" , async(req,res)=>{
-    const server = createMcpServer(); 
+    //sessiionIdGenerator = maintains the session 
     const transport = new StreamableHTTPServerTransport({sessionIdGenerator:undefined}); 
 
     try {
@@ -39,10 +63,13 @@ app.post("/mcp" , async(req,res)=>{
     }finally{
         req.on("close", ()=>{
             transport.close().catch(()=>{});
-            server.close().catch(()=>{});
         }); 
     }
 });
+
+app.get("/mcp",(req,res)=>{
+    res.send("Successfull")
+})
 
 app.listen(5001, ()=>{
     console.log("MCP SERVER STARTED"); 
