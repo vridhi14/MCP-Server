@@ -12,6 +12,18 @@ function createMcpServer(){
         version:"1.0.0", 
         description:"MCP SERVER to manage a blog"
     } , {capabilities :{tools:{} , resources:{} , prompts:{}}});
+
+    server.registerTool("create_post",{
+        description:"Create a new post", 
+        inputSchema:{
+            //title , author etx
+        }, 
+        outputSchema:{
+
+        }
+    }, async(args)=>{
+        return {content:[{type:"text", text:JSON.stringify("Successfull",null,2)}]}
+    })
     return server;
 }
 
